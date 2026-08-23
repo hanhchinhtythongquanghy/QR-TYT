@@ -1,0 +1,633 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Tiếp đón khám sức khỏe - Trạm Y tế xã Hồng Quang</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Times+New+Roman&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
+<script src="config.js"></script>
+<style>
+  :root {
+    --navy: #1c3d5a;
+    --navy-dark: #14293c;
+    --accent: #b8860b;
+    --bg: #f3f5f7;
+    --panel: #ffffff;
+    --border: #d7dde3;
+    --text: #1f2937;
+    --muted: #64748b;
+    --ok: #1a7f4e;
+    --err: #c0392b;
+    --warn: #b8860b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+
+  /* ---------- Layout khung ứng dụng ---------- */
+  header {
+    background: var(--navy);
+    color: #fff;
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  header .title { font-weight: 700; font-size: 17px; letter-spacing: .2px; }
+  header .title small { display: block; font-weight: 400; font-size: 12px; color: #cbd8e4; }
+  nav { display: flex; gap: 8px; }
+  .nav-btn {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,.35);
+    color: #fff;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+  }
+  .nav-btn.active { background: var(--accent); border-color: var(--accent); }
+
+  main { padding: 28px; max-width: 1200px; margin: 0 auto; }
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ---------- Trang tiếp đón ---------- */
+  .scan-panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 32px;
+    text-align: center;
+  }
+  .scan-panel h2 { margin-top: 0; font-size: 18px; color: var(--navy-dark); }
+  .scan-panel p { color: var(--muted); font-size: 14px; }
+  #qr-input {
+    width: 100%;
+    font-size: 20px;
+    padding: 16px 18px;
+    border: 2px solid var(--navy);
+    border-radius: 8px;
+    outline: none;
+    margin-top: 12px;
+  }
+  #qr-input:focus { border-color: var(--accent); }
+
+  .scan-result {
+    display: none;
+    margin-top: 18px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 24px;
+    text-align: left;
+  }
+  .scan-result.show { display: block; }
+  .scan-result-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .scan-result-header h3 { margin: 0; font-size: 16px; color: var(--navy-dark); }
+  .badge-status { font-size: 12px; padding: 4px 10px; border-radius: 20px; font-weight: 600; white-space: nowrap; }
+  .badge-status.ok { background: #e5f6ec; color: var(--ok); }
+  .badge-status.warn { background: #fff6e5; color: #8a5a00; }
+  .scan-result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; }
+  .scan-result-grid .full { grid-column: 1 / -1; }
+  .scan-result-grid .label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 2px; }
+  .scan-result-grid .value { font-size: 15px; font-weight: 600; color: var(--text); }
+  .scan-result-dup {
+    display: none;
+    margin-top: 14px;
+    padding: 10px 14px;
+    background: #fff6e5;
+    border: 1px solid #f0d29a;
+    color: #8a5a00;
+    border-radius: 6px;
+    font-size: 13.5px;
+    text-align: left;
+  }
+  .scan-result-actions { display: flex; gap: 10px; margin-top: 18px; }
+  .scan-result-save { margin-top: 10px; font-size: 13px; color: var(--muted); }
+  .scan-result-save.ok { color: var(--ok); }
+  .scan-result-save.err { color: var(--err); }
+
+  .scan-input-row { display: flex; gap: 10px; align-items: stretch; margin-top: 12px; }
+  .scan-input-row #qr-input { margin-top: 0; flex: 1; }
+  .btn-camera {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--accent); color: #fff; border: none;
+    padding: 0 20px; border-radius: 8px; cursor: pointer;
+    font-size: 15px; font-weight: 600; white-space: nowrap;
+  }
+  .btn-camera:hover { filter: brightness(1.05); }
+  .btn-camera svg { width: 20px; height: 20px; flex-shrink: 0; }
+
+  /* ---------- Modal quét camera ---------- */
+  .camera-box { width: 420px; text-align: center; }
+  .camera-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    background: #000;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-top: 6px;
+  }
+  #camera-video { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .scan-frame {
+    position: absolute; top: 12%; left: 12%; right: 12%; bottom: 12%;
+    border-radius: 12px;
+    box-shadow: 0 0 0 2000px rgba(0,0,0,.35);
+    pointer-events: none;
+  }
+  .scan-frame::before, .scan-frame::after,
+  .scan-frame .corner-tl, .scan-frame .corner-tr, .scan-frame .corner-bl, .scan-frame .corner-br {
+    content: ""; position: absolute; width: 26px; height: 26px; border: 3px solid var(--accent);
+  }
+  .scan-frame .corner-tl { top: -3px; left: -3px; border-right: none; border-bottom: none; border-radius: 8px 0 0 0; }
+  .scan-frame .corner-tr { top: -3px; right: -3px; border-left: none; border-bottom: none; border-radius: 0 8px 0 0; }
+  .scan-frame .corner-bl { bottom: -3px; left: -3px; border-right: none; border-top: none; border-radius: 0 0 0 8px; }
+  .scan-frame .corner-br { bottom: -3px; right: -3px; border-left: none; border-top: none; border-radius: 0 0 8px 0; }
+  .scan-line {
+    position: absolute; left: 4%; right: 4%; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    top: 0; animation: scan-move 2.1s ease-in-out infinite;
+  }
+  @keyframes scan-move {
+    0% { top: 4%; }
+    50% { top: 94%; }
+    100% { top: 4%; }
+  }
+  .camera-hint { color: var(--muted); font-size: 13px; margin-top: 12px; }
+  .camera-status { min-height: 18px; font-size: 13px; color: var(--err); margin-top: 6px; }
+  .camera-toolbar { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .camera-toolbar .btn.secondary { padding: 7px 14px; font-size: 13px; }
+  .camera-toolbar #zoom-label { font-size: 13px; color: var(--muted); min-width: 32px; text-align: center; }
+  #camera-video { cursor: crosshair; }
+
+  .toolbar-row { display: flex; justify-content: flex-end; margin-bottom: 12px; }
+  .btn {
+    background: var(--navy);
+    color: #fff;
+    border: none;
+    padding: 9px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .btn.secondary { background: #fff; color: var(--navy); border: 1px solid var(--border); }
+
+  .toast {
+    margin-top: 18px;
+    padding: 12px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    display: none;
+  }
+  .toast.show { display: block; }
+  .toast.ok { background: #e5f6ec; color: var(--ok); border: 1px solid #b7e4c7; }
+  .toast.err { background: #fdecea; color: var(--err); border: 1px solid #f3c1bb; }
+
+  #warning-banner {
+    display: none;
+    margin-top: 14px;
+    padding: 12px 16px;
+    background: #fff6e5;
+    border: 1px solid #f0d29a;
+    color: #8a5a00;
+    border-radius: 6px;
+    font-size: 14px;
+    text-align: left;
+  }
+
+  /* ---------- Modal cài đặt ---------- */
+  .modal {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(15,23,42,.45);
+    align-items: center; justify-content: center;
+    z-index: 50;
+  }
+  .modal-box {
+    background: #fff;
+    border-radius: 10px;
+    padding: 24px 28px;
+    width: 440px;
+    max-height: 85vh;
+    overflow-y: auto;
+  }
+  .modal-box h3 { margin-top: 0; color: var(--navy-dark); }
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+  .field select, .field input {
+    width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px;
+  }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+
+  /* ---------- Trang danh sách ---------- */
+  .list-controls { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+  .list-controls input[type=text], .list-controls input[type=date] {
+    padding: 9px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px;
+  }
+  .list-controls label { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 8px; }
+  table { width: 100%; border-collapse: collapse; background: var(--panel); border-radius: 8px; overflow: hidden; }
+  thead th {
+    background: var(--navy); color: #fff; text-align: left; font-size: 12px;
+    padding: 10px 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em;
+  }
+  #list-body td { padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 13.5px; }
+  tbody tr { cursor: pointer; transition: opacity .5s, transform .5s; }
+  tbody tr:hover { background: #f3f7fb; }
+  tbody tr.exported { opacity: .45; }
+  tbody tr.copied { opacity: 0; transform: translateX(12px); }
+  .cccd-cell { font-variant-numeric: tabular-nums; }
+
+  .hint { font-size: 12.5px; color: var(--muted); margin-bottom: 14px; }
+
+  .btn-print-row {
+    background: #fff;
+    color: var(--navy);
+    border: 1px solid var(--border);
+    padding: 5px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 12.5px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .btn-print-row:hover { background: #eef3f8; border-color: var(--navy); }
+
+  /* ============================================================
+     MẪU IN - chỉ khu vực này hiển thị khi in
+     Khớp định dạng file gốc "18+.docx":
+       - Khổ A4, lề trái 2cm / phải 1.5cm / trên 1.5cm / dưới 1cm
+       - Phông Times New Roman, cỡ 13, giãn dòng 1.15
+     ============================================================ */
+  #print-area { display: none; }
+
+  @media print {
+    body * { visibility: hidden; }
+    #print-area, #print-area * { visibility: visible; }
+    #print-area { display: block; position: absolute; top: 0; left: 0; width: 100%; }
+    /* margin: trên phải dưới trái */
+    @page { size: A4; margin: 1.0cm 1.5cm 0.5cm 2cm; }
+  }
+
+  #print-area {
+    font-family: 'Times New Roman', Times, serif;
+    font-size: 13pt;
+    line-height: 1.15;
+    color: #000;
+  }
+  .pt-header-table { width: 100%; border-collapse: collapse; margin-bottom: 0; table-layout: fixed; }
+  .pt-header-table td { vertical-align: top; text-align: center; padding: 0; font-size: 13pt; }
+  .pt-header-table td:first-child { width: 40%; }
+  .pt-header-table td:last-child { width: 60%; }
+  .pt-header-table .pt-line1 { padding-top: 2px; }
+  .pt-header-table b { display: block; font-weight: 700; white-space: nowrap; }
+  .pt-header-table td:last-child b:first-child { font-size: 12.5pt; letter-spacing: -0.2px; }
+  .pt-header-table .dashes { border-top: 1px solid #000; width: 55%; margin: 3px auto 6px; }
+  .pt-so { text-align: left; padding-top: 2px !important; }
+  .pt-title { text-align: center; font-weight: 400; margin: 12px 0 16px; line-height: 1.15; }
+  .pt-line { margin: 6px 0; line-height: 1.15; }
+  .pt-line .fill { padding: 0 4px; }
+  /* Trường chưa có dữ liệu: để trống một khoảng đủ dài, viền chấm nhỏ để điền tay sau khi in */
+  .fill:empty { display: inline-block; min-width: 140px; border-bottom: 1px dotted #000; }
+  .fill.fill-wide:empty { min-width: 280px; }
+  /* Trường đã có dữ liệu: in đậm thay vì gạch chân */
+  .fill:not(:empty) { font-weight: 700; }
+
+  .pt-section-title { text-align: center; font-weight: 700; margin: 12px 0 6px; line-height: 1.15; }
+  .pt-bold { font-weight: 700; }
+  .pt-para { margin: 6px 0; line-height: 1.15; text-align: justify; }
+
+  .pt-table {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+    margin: 8px 0 10px;
+    font-size: 13pt;
+    line-height: 1.15;
+  }
+  .pt-table th, .pt-table td {
+    border: 1px solid #000;
+    padding: 3px 5px;
+    vertical-align: middle;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
+  .pt-table th {
+    font-weight: 700; text-align: center;
+    background: none; color: #000; text-transform: none; letter-spacing: normal; font-size: 13pt;
+  }
+  .pt-table td.pt-tt { text-align: center; }
+  .pt-table td.pt-check { text-align: center; }
+  .pt-table tr { page-break-inside: avoid; }
+
+  /* ============================================================
+     GIAO DIỆN ĐIỆN THOẠI (≤700px)
+     - Bỏ ô chờ quét QR (chỉ dùng khi có máy quét vật lý cắm bàn tiếp đón)
+     - Thu gọn khoảng cách, cỡ chữ để trang tiếp đón vừa 1 màn hình
+     - Nút camera trở thành CTA chính, to, dễ chạm
+     - Trang danh sách: các bộ lọc xếp dọc, bảng cuộn ngang
+     ============================================================ */
+  @media (max-width: 700px) {
+    header { padding: 10px 14px; }
+    header .title { font-size: 14.5px; }
+    header .title small { font-size: 10.5px; }
+    nav { gap: 6px; }
+    .nav-btn { padding: 7px 12px; font-size: 12.5px; }
+
+    main { padding: 12px; }
+    .toolbar-row { margin-bottom: 10px; }
+    .toolbar-row .btn.secondary { padding: 7px 12px; font-size: 12px; }
+
+    .scan-panel { padding: 20px 16px; }
+    .scan-panel h2 { font-size: 16px; margin: 0 0 4px; }
+    .scan-panel p { font-size: 12.5px; margin: 0 0 16px; line-height: 1.4; }
+
+    /* Ẩn ô chờ quét QR — chỉ dành cho máy quét vật lý cắm bàn tiếp đón, trên
+       điện thoại không dùng đến. Nút camera trở thành lựa chọn quét duy nhất,
+       hiển thị to, dễ chạm bằng ngón tay. */
+    .scan-input-row { margin-top: 0; }
+    #qr-input { display: none; }
+    .btn-camera {
+      width: 100%;
+      justify-content: center;
+      padding: 16px;
+      font-size: 15.5px;
+      border-radius: 10px;
+    }
+    .btn-camera svg { width: 22px; height: 22px; }
+
+    .scan-result { padding: 16px 18px; margin-top: 14px; }
+    .scan-result-header h3 { font-size: 14.5px; }
+    .scan-result-grid { grid-template-columns: 1fr; gap: 9px; }
+    .scan-result-grid .value { font-size: 14px; }
+    .scan-result-actions { flex-direction: column; }
+    .scan-result-actions .btn, .scan-result-actions .btn.secondary { width: 100%; }
+
+    #warning-banner, .scan-result-dup, .toast { font-size: 13px; }
+
+    /* Modal cấu hình và modal camera co lại vừa màn hình hẹp */
+    .modal-box { width: 92vw; padding: 18px 16px; }
+    .camera-box { width: 92vw; }
+
+    /* Trang danh sách: bộ lọc xếp dọc chiếm hết chiều ngang, dễ chạm */
+    .list-controls { flex-direction: column; align-items: stretch; gap: 8px; }
+    .list-controls input[type=text], .list-controls input[type=date] {
+      width: 100%; min-width: 0 !important;
+    }
+    .hint { font-size: 11.5px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="title">
+    Tiếp đón khám sức khỏe
+    <small id="hdr-tram">Trạm Y tế xã Hồng Quang</small>
+  </div>
+  <nav>
+    <button class="nav-btn active" id="nav-reception">Tiếp đón</button>
+    <button class="nav-btn" id="nav-list">Danh sách</button>
+  </nav>
+</header>
+
+<main>
+
+  <!-- ============ TRANG 1: TIẾP ĐÓN ============ -->
+  <section class="page active" id="page-reception">
+    <div class="toolbar-row">
+      <button class="btn secondary" id="btn-settings">⚙ Cấu hình đợt khám</button>
+    </div>
+
+    <div class="scan-panel">
+      <h2>Quét mã QR trên thẻ CCCD</h2>
+      <div class="scan-input-row">
+        <input type="text" id="qr-input" autocomplete="off" placeholder="Chờ quét mã QR..." />
+        <button type="button" class="btn-camera" id="btn-open-camera">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+            <circle cx="12" cy="13" r="4"></circle>
+          </svg>
+          Quét bằng camera
+        </button>
+      </div>
+      <div class="toast" id="toast"></div>
+      <div id="warning-banner"></div>
+
+      <div class="scan-result" id="scan-result">
+        <div class="scan-result-header">
+          <h3>Thông tin vừa quét</h3>
+          <span class="badge-status ok" id="scan-result-badge">Hợp lệ</span>
+        </div>
+        <div class="scan-result-grid">
+          <div><span class="label">Họ và tên</span><span class="value" id="sr-ho-ten"></span></div>
+          <div><span class="label">Giới tính</span><span class="value" id="sr-gioi"></span></div>
+          <div><span class="label">Ngày sinh</span><span class="value" id="sr-ngay-sinh"></span></div>
+          <div><span class="label">Số CCCD</span><span class="value" id="sr-cccd"></span></div>
+          <div><span class="label">Ngày cấp CCCD</span><span class="value" id="sr-ngay-cap"></span></div>
+          <div class="full"><span class="label">Nơi thường trú</span><span class="value" id="sr-dia-chi"></span></div>
+        </div>
+        <div class="scan-result-dup" id="scan-result-dup"></div>
+        <div class="scan-result-actions">
+          <button type="button" class="btn" id="btn-print-scan">🖨 In phiếu tiếp đón</button>
+          <button type="button" class="btn secondary" id="btn-clear-scan">Quét thẻ tiếp theo</button>
+        </div>
+        <div class="scan-result-save" id="scan-result-save"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ TRANG 2: DANH SÁCH ============ -->
+  <section class="page" id="page-list">
+    <p class="hint">Bấm vào một dòng để copy mã QR (dán sang phần mềm V20) — dòng đó sẽ tự ẩn sau 2 giây và đánh dấu đã bàn giao.</p>
+    <div class="list-controls">
+      <input type="date" id="filter-date" />
+      <input type="text" id="search-box" placeholder="Tìm theo tên, CCCD, địa chỉ..." style="min-width:260px" />
+      <label><input type="checkbox" id="toggle-hide-exported" checked /> Ẩn những người đã bàn giao V20</label>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>TT</th><th>Giờ</th><th>Ngày</th><th>Họ và tên</th><th>Ngày sinh</th>
+            <th>Giới</th><th>CCCD</th><th>Địa chỉ</th><th>Trạng thái</th><th>Thao tác</th>
+          </tr>
+        </thead>
+        <tbody id="list-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+</main>
+
+<!-- ============ MODAL CẤU HÌNH ĐỢT KHÁM ============ -->
+<div class="modal" id="settings-modal">
+  <div class="modal-box">
+    <h3>Cấu hình đợt khám</h3>
+    <form id="settings-form">
+      <div class="field">
+        <label>Cách tính tuổi</label>
+        <select name="ageMode">
+          <option value="date">Theo ngày sinh chính xác</option>
+          <option value="year">Theo năm sinh (khám theo trường/nhóm)</option>
+        </select>
+      </div>
+      <div class="field"><label>Dân tộc</label><input name="dan_toc" /></div>
+      <div class="field"><label>Đối tượng</label><input name="doi_tuong" /></div>
+      <div class="field"><label>Nguồn chi trả</label><input name="nguon_chi_tra" /></div>
+      <div class="field"><label>Nhóm máu (để trống nếu không rõ)</label><input name="nhom_mau" /></div>
+      <div class="field"><label>Nghề nghiệp</label><input name="nghe_nghiep" /></div>
+      <div class="field"><label>Nơi làm việc, học tập</label><input name="noi_lam_viec" /></div>
+      <div class="field"><label>Lý do khám sức khỏe</label><input name="ly_do_kham" /></div>
+      <div class="modal-actions">
+        <button type="button" class="btn secondary" id="btn-close-settings">Hủy</button>
+        <button type="submit" class="btn">Lưu</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ============ MODAL QUÉT QR BẰNG CAMERA ============ -->
+<div class="modal" id="camera-modal">
+  <div class="modal-box camera-box">
+    <h3>Quét mã QR bằng camera</h3>
+    <div class="camera-wrap">
+      <video id="camera-video" playsinline autoplay muted></video>
+      <div class="scan-frame">
+        <div class="corner-tl"></div><div class="corner-tr"></div>
+        <div class="corner-bl"></div><div class="corner-br"></div>
+        <div class="scan-line"></div>
+      </div>
+    </div>
+    <div class="camera-toolbar">
+      <button type="button" class="btn secondary" id="btn-zoom-out" style="display:none">－</button>
+      <span id="zoom-label" style="display:none"></span>
+      <button type="button" class="btn secondary" id="btn-zoom-in" style="display:none">＋</button>
+      <button type="button" class="btn secondary" id="btn-torch" style="display:none">🔦 Đèn flash</button>
+    </div>
+    <p class="camera-hint">Đưa mã QR trên CCCD vào giữa khung — giữ thẻ cách camera 10–15cm. Chạm vào camera để lấy nét lại nếu ảnh bị mờ.</p>
+    <div class="camera-status" id="camera-status"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn secondary" id="btn-switch-camera" style="display:none">↺ Đổi camera</button>
+      <button type="button" class="btn secondary" id="btn-close-camera">Đóng</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MẪU IN (ẩn, chỉ hiện khi in) ============ -->
+<div id="print-area">
+  <table class="pt-header-table">
+    <tr>
+      <td>
+        <span id="pt-ten-xa">UBND XÃ HỒNG QUANG</span>
+        <b id="pt-ten-tram">TRẠM Y TẾ XÃ HỒNG QUANG</b>
+        <div class="dashes"></div>
+      </td>
+      <td>
+        <b>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</b>
+        <b>Độc lập - Tự do - Hạnh phúc</b>
+        <div class="dashes"></div>
+      </td>
+    </tr>
+    <tr>
+      <td class="pt-so">Số: ……./GKSK-TYT</td>
+      <td></td>
+    </tr>
+  </table>
+
+  <div class="pt-title">
+    GIẤY KHÁM SỨC KHỎE VÀ KHÁM SỨC KHỎE ĐỊNH KỲ<br/>
+    DÙNG CHO NGƯỜI TỪ ĐỦ 18 TUỔI TRỞ LÊN
+  </div>
+
+  <div class="pt-line">1. Họ và tên (viết chữ in hoa): <span class="fill fill-wide" id="pt-ho-ten"></span></div>
+
+  <div class="pt-line">2. Giới tính: <span id="pt-gioi-nam">☐</span> Nam &nbsp;&nbsp; <span id="pt-gioi-nu">☐</span> Nữ</div>
+
+  <div class="pt-line">3. Ngày tháng năm sinh: <span class="fill" id="pt-ngay-sinh"></span> (Tuổi: <span id="pt-tuoi"></span>)</div>
+
+  <div class="pt-line">4. Số CCCD/Hộ chiếu/Mã định danh: <span class="fill" id="pt-cccd"></span></div>
+
+  <div class="pt-line">5. Cấp ngày <span class="fill" id="pt-ngay-cap"></span> &nbsp; Nơi cấp <span class="fill fill-wide" id="pt-noi-cap"></span></div>
+
+  <div class="pt-line">6. Dân tộc: <span class="fill" id="pt-dan-toc"></span></div>
+
+  <div class="pt-line">7. Đối tượng: <span class="fill" id="pt-doi-tuong"></span></div>
+
+  <div class="pt-line">8. Nguồn chi trả: <span class="fill fill-wide" id="pt-nguon-chi-tra"></span></div>
+
+  <div class="pt-line">9. Nhóm máu: <span class="fill" id="pt-nhom-mau"></span> (nếu có)</div>
+
+  <div class="pt-line">
+    10. Nơi ở hiện tại: Tỉnh/thành: <span class="fill" id="pt-tinh"></span>
+    &nbsp; Phường/xã: <span class="fill" id="pt-phuong-xa"></span>
+    &nbsp; Số nhà/thôn/xóm: <span class="fill fill-wide" id="pt-so-nha"></span>
+  </div>
+
+  <div class="pt-line">11. Nghề nghiệp: <span class="fill fill-wide" id="pt-nghe-nghiep"></span></div>
+  <div class="pt-line">12. Nơi làm việc, học tập: <span class="fill fill-wide" id="pt-noi-lam-viec"></span></div>
+  <div class="pt-line">13. Lý do khám sức khỏe: <span class="fill fill-wide" id="pt-ly-do"></span></div>
+
+  <div class="pt-section-title">TIỀN SỬ BỆNH CỦA ĐỐI TƯỢNG KHÁM SỨC KHỎE</div>
+
+  <div class="pt-para"><span class="pt-bold">1. Tiền sử gia đình:</span></div>
+  <div class="pt-para">Có ai trong gia đình ông (bà) mắc một trong các bệnh: truyền nhiễm, tim mạch, đái tháo đường, lao, hen phế quản, ung thư, động kinh, rối loạn tâm thần, bệnh khác:</div>
+  <div class="pt-para">a) &#9633; Không &nbsp;&nbsp; b) &#9633; Có; Nếu &ldquo;có&rdquo;, đề nghị ghi cụ thể tên bệnh: .....................................</span></div>
+  <div class="pt-para"><span class="pt-bold">2. Tiền sử bản thân:</span> Ông (bà) đã/đang mắc bệnh, tình trạng bệnh nào sau đây không:</div>
+
+  <table class="pt-table">
+    <colgroup>
+      <col style="width:6%">
+      <col style="width:32%">
+      <col style="width:6%">
+      <col style="width:10%">
+      <col style="width:6%">
+      <col style="width:32%">
+      <col style="width:6%">
+      <col style="width:10%">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>TT</th><th>Tên bệnh, tật</th><th>Có</th><th>Không</th>
+        <th>TT</th><th>Tên bệnh, tật</th><th>Có</th><th>Không</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="pt-tt">1</td><td>Có bệnh hay bị thương trong 5 năm qua</td><td class="pt-check">&#9633;</td><td class="pt-check">&#9633;</td>
+        <td class="pt-tt">12</td><td>Đái tháo đường hoặc kiểm soát tăng đường huyết</td><td class="pt-check">&#9633;</td><td class="pt-check">&#9633;</td>
+      </tr>
+      <tr>
+        <td class="pt-tt">2</td><td>Có bệnh thần kinh hay bị thương ở đầu</td><td class="pt-check">&#9633;</td><td class="pt-check">&#9633;</td>
+        <td class="pt-tt">13</td><td>Bệnh tâm thần</td><td class="pt-check">&#9633;</td><td class="pt-check">&#9633;</td>
+      </tr>
+      <tr>
+        <td class="pt-tt">3</td><td>Bệnh mắt hoặc giảm thị lực (trừ trường hợp đeo kính thuốc)</td><td class="pt-check">&#9633;</td><td class="pt-check">&#9633;</td>
+        <td class="pt-tt">14</td><td>Mất ý thức, rối loạn ý thức</td><td class="pt-check">&#9633;</td><td class="pt-check">&#9633;</td>
+      </tr>
+      <tr>
+        <td class="pt-tt">4</td><td>Bệnh ở tai, giảm sức nghe hoặc thăng bằng</td><td class="pt-check">&#9633;</td><td class="pt-check">&#9633;</td>
+        <td class="pt-tt">15</td><td>Ngất, chóng mặt</td><td class="pt-check">&#9633;</td><td class="pt-check">&#9633;</td>
+      </tr>
+      <tr>
+        <td class="pt-tt">5</td><td>Bệnh ở tim, hoặc nhồi máu cơ tim, các bệnh tim mạch khác</td><td class="pt-check">&#9633;</td><td class="pt-check">&#9633;</td>
+        <td class="pt-tt">16</td><td>Bệnh tiêu hóa</td><td class="pt-check">&#9633;</td><td class="pt-check">&#9633;</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
