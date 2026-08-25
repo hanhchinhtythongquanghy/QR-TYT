@@ -9,4 +9,14 @@ window.APP_CONFIG = {
   // Tên đơn vị hiển thị trên phiếu in
   TEN_XA: "UBND XÃ HỒNG QUANG",
   TEN_TRAM: "TRẠM Y TẾ XÃ HỒNG QUANG",
+    // Danh sách nhân viên trực tiếp đón/quét mã — sửa lại danh sách này khi có thay đổi nhân sự
+  DANH_SACH_NGUOI_QUET: [
+    "Nguyễn Thị Hương",
+    "Dương Thị Dinh",
+    "Đỗ Thị Tú Linh",
+    "Quách Thị Thúy",
+    "Nguyễn Thị Hồng Hà",
+  ],
+};
+ 
 };
