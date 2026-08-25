@@ -690,7 +690,13 @@ async function startCameraScan(deviceId) {
   // Khung hình/giây cao giúp bộ giải mã (native lẫn ZXing) có nhiều cơ hội bắt
   // được mã QR hơn mỗi giây, đặc biệt khi tay người dùng hơi rung khi cầm thẻ.
   videoConstraints.frameRate = { ideal: 30 };
-  videoConstraints.advanced = [{ focusMode: "continuous" }];
+  // LƯU Ý: KHÔNG đặt `advanced: [{ focusMode: "continuous" }]` ngay trong yêu cầu
+  // getUserMedia ban đầu. Safari/iPhone hay trả lỗi OverconstrainedError và từ
+  // chối mở camera hoàn toàn khi gặp constraint "advanced" mà nó không hỗ trợ
+  // đầy đủ (đây là lỗi WebKit được nhiều người gặp), trong khi Chrome/Android
+  // thì âm thầm bỏ qua. focusMode vẫn được áp dụng an toàn hơn NGAY SAU KHI mở
+  // camera thành công, thông qua applyConstraints() có bọc try/catch bên dưới —
+  // nên bỏ dòng này khỏi yêu cầu ban đầu không làm mất chức năng lấy nét liên tục.
 
   if (nativeQrSupported === null) {
     nativeQrSupported = await supportsNativeBarcodeDetector();
@@ -700,7 +706,7 @@ async function startCameraScan(deviceId) {
   // nhất, tương đương công nghệ Zalo dùng) — ưu tiên khi trình duyệt hỗ trợ ----------
   if (nativeQrSupported) {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: false });
+      const stream = await getCameraStreamWithFallback(videoConstraints);
       cameraVideo.srcObject = stream;
       await cameraVideo.play();
 
@@ -765,7 +771,7 @@ async function startCameraScan(deviceId) {
 
   // ---------- Nhánh 3 (dự phòng cuối): ZXing tự crop/zoom thủ công ----------
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: false });
+    const stream = await getCameraStreamWithFallback(videoConstraints);
     cameraVideo.srcObject = stream;
     await cameraVideo.play();
 
@@ -797,9 +803,33 @@ function reportCameraError(e) {
     msg = "✗ Không tìm thấy camera trên thiết bị này.";
   } else if (e && e.name === "NotReadableError") {
     msg = "✗ Camera đang được ứng dụng khác sử dụng.";
+  } else if (e && e.name === "OverconstrainedError") {
+    msg = "✗ Camera của máy không đáp ứng được yêu cầu quét. Thử tải lại trang.";
+  } else if (e && e.name) {
+    // In kèm tên lỗi gốc để dễ chẩn đoán nếu vẫn còn gặp lỗi khác trên một máy cụ thể
+    msg = `✗ Không thể mở camera (${e.name}).`;
   }
   cameraStatusEl.style.color = "var(--err)";
   cameraStatusEl.textContent = msg;
+}
+
+// Một số máy (đặc biệt iPhone/Safari đời cũ) từ chối getUserMedia hoàn toàn với lỗi
+// OverconstrainedError nếu bất kỳ ràng buộc nào (kể cả chỉ là "ideal") không khớp
+// hoàn hảo với phần cứng — dù về mặt chuẩn W3C, "ideal" đáng lẽ chỉ là gợi ý, không
+// bắt buộc. Để không bị lỗi hẳn không quét được trên những máy đó, nếu gặp đúng lỗi
+// này thì tự động thử lại với ràng buộc tối giản (chỉ chọn camera/hướng camera).
+async function getCameraStreamWithFallback(videoConstraints) {
+  try {
+    return await navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: false });
+  } catch (e) {
+    if (e && e.name === "OverconstrainedError") {
+      const simplified = videoConstraints.deviceId
+        ? { deviceId: videoConstraints.deviceId }
+        : { facingMode: videoConstraints.facingMode || { ideal: "environment" } };
+      return await navigator.mediaDevices.getUserMedia({ video: simplified, audio: false });
+    }
+    throw e;
+  }
 }
 
 function stopCameraScan() {
