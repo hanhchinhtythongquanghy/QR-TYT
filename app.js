@@ -82,6 +82,7 @@ const SETTINGS_KEY = "dot_kham_settings_v1";
 function getSettings() {
   const raw = localStorage.getItem(SETTINGS_KEY);
   const defaults = {
+    nguoi_quet: "",
     ageMode: "date", // "date" = ngày sinh chính xác | "year" = theo năm sinh
     dan_toc: "Kinh",
     doi_tuong: "",
@@ -275,6 +276,10 @@ async function handleScan(raw) {
   const data = parseQR(raw);
   const settings = getSettings();
 
+  if (!settings.nguoi_quet) {
+    showToast("⚠ Chưa chọn người quét — vào Cấu hình đợt khám để chọn", "err");
+  }
+
   if (!data.cccd || !data.hoTen) {
     showToast("⚠ Không đọc được dữ liệu QR, thử quét lại", "err");
     return;
@@ -340,6 +345,7 @@ async function handleScan(raw) {
     noi_lam_viec: settings.noi_lam_viec,
     ly_do_kham: settings.ly_do_kham,
     nhom_tuoi: "18+",
+    nguoi_quet: settings.nguoi_quet || null,
   };
 
   const { error } = await sb.from("tiep_don").insert(row);
@@ -380,6 +386,29 @@ if (qrInput) {
 // ---------- Modal cài đặt đợt khám ----------
 const settingsModal = document.getElementById("settings-modal");
 const settingsForm = document.getElementById("settings-form");
+const nguoiQuetSelect = document.getElementById("field-nguoi-quet");
+const currentNguoiQuetEl = document.getElementById("current-nguoi-quet");
+
+// Đổ danh sách tên nhân viên (khai báo trong config.js) vào ô chọn
+function populateNguoiQuetSelect() {
+  if (!nguoiQuetSelect) return;
+  const list = window.APP_CONFIG.DANH_SACH_NGUOI_QUET || [];
+  nguoiQuetSelect.innerHTML =
+    `<option value="">— Chọn tên —</option>` +
+    list.map((ten) => `<option value="${ten}">${ten}</option>`).join("");
+}
+populateNguoiQuetSelect();
+
+// Hiện tên người quét đang được chọn trên thanh công cụ trang Tiếp đón,
+// để biết ngay đang tiếp đón dưới tên ai mà không cần mở lại cấu hình.
+function updateCurrentNguoiQuetLabel() {
+  if (!currentNguoiQuetEl) return;
+  const s = getSettings();
+  currentNguoiQuetEl.textContent = s.nguoi_quet
+    ? `Người quét: ${s.nguoi_quet}`
+    : "⚠ Chưa chọn người quét — mở Cấu hình đợt khám để chọn";
+}
+updateCurrentNguoiQuetLabel();
 
 function openSettings() {
   const s = getSettings();
@@ -400,6 +429,7 @@ if (settingsForm) {
     const fd = new FormData(settingsForm);
     const s = Object.fromEntries(fd.entries());
     saveSettings(s);
+    updateCurrentNguoiQuetLabel();
     closeSettings();
     qrInput.focus();
     showToast("Đã lưu cấu hình đợt khám", "ok");
@@ -902,6 +932,7 @@ function renderList() {
       <td>${r.gioi || ""}</td>
       <td class="cccd-cell">${r.cccd || ""}</td>
       <td>${r.dia_chi || ""}</td>
+      <td>${r.nguoi_quet || ""}</td>
       <td>${r.da_nhap_v20 ? "✓ Đã nhập" : "—"}</td>
       <td><button type="button" class="btn-print-row" data-id="${r.id}">🖨 In phiếu</button></td>
     `;
