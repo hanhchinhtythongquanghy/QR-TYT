@@ -466,7 +466,8 @@
 
   <!-- ============ TRANG 1: TIẾP ĐÓN ============ -->
   <section class="page active" id="page-reception">
-    <div class="toolbar-row">
+    <div class="toolbar-row" style="justify-content: space-between;">
+      <span class="hint" id="current-nguoi-quet" style="margin:0;"></span>
       <button class="btn secondary" id="btn-settings">⚙ Cấu hình đợt khám</button>
     </div>
 
@@ -521,7 +522,7 @@
         <thead>
           <tr>
             <th>TT</th><th>Giờ</th><th>Ngày</th><th>Họ và tên</th><th>Ngày sinh</th>
-            <th>Giới</th><th>CCCD</th><th>Địa chỉ</th><th>Trạng thái</th><th>Thao tác</th>
+            <th>Giới</th><th>CCCD</th><th>Địa chỉ</th><th>Người quét</th><th>Trạng thái</th><th>Thao tác</th>
           </tr>
         </thead>
         <tbody id="list-body"></tbody>
@@ -538,6 +539,10 @@
   <div class="modal-box">
     <h3>Cấu hình đợt khám</h3>
     <form id="settings-form">
+      <div class="field">
+        <label>Người quét</label>
+        <select name="nguoi_quet" id="field-nguoi-quet"></select>
+      </div>
       <div class="field">
         <label>Cách tính tuổi</label>
         <select name="ageMode">
