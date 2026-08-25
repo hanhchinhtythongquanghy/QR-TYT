@@ -338,6 +338,42 @@
      - Nút camera trở thành CTA chính, to, dễ chạm
      - Trang danh sách: các bộ lọc xếp dọc, bảng cuộn ngang
      ============================================================ */
+  /* ---------- Màn hình đăng nhập ---------- */
+  #login-screen {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(160deg, var(--navy) 0%, var(--navy-dark) 100%);
+    padding: 20px;
+  }
+  .login-box {
+    background: var(--panel);
+    border-radius: 12px;
+    padding: 36px 32px;
+    width: 100%;
+    max-width: 360px;
+    text-align: center;
+    box-shadow: 0 12px 32px rgba(0,0,0,.25);
+  }
+  .login-logo { font-size: 36px; margin-bottom: 4px; }
+  .login-box h2 { margin: 0 0 4px; color: var(--navy-dark); font-size: 20px; }
+  .login-sub { margin: 0 0 22px; color: var(--muted); font-size: 13px; }
+  .login-box .field { text-align: left; }
+  .login-box .field label { font-size: 13px; color: var(--muted); margin-bottom: 4px; display: block; }
+  .login-box .field input {
+    width: 100%; padding: 10px 12px; border: 1px solid var(--border);
+    border-radius: 6px; font-size: 14.5px; outline: none;
+  }
+  .login-box .field input:focus { border-color: var(--navy); }
+  .login-error {
+    min-height: 18px; color: var(--err); font-size: 13px;
+    margin: 4px 0 10px; text-align: left;
+  }
+  .login-submit { width: 100%; padding: 11px; font-size: 15px; margin-top: 4px; }
+  .login-submit:disabled { opacity: .6; cursor: default; }
+  #btn-logout { margin-left: 4px; }
+
   @media (max-width: 700px) {
     header { padding: 10px 14px; }
     header .title { font-size: 14.5px; }
@@ -391,6 +427,29 @@
 </head>
 <body>
 
+<!-- ============ MÀN HÌNH ĐĂNG NHẬP ============ -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">🏥</div>
+    <h2>Đăng nhập</h2>
+    <p class="login-sub" id="login-tram-name">Trạm Y tế xã Hồng Quang</p>
+    <form id="login-form">
+      <div class="field">
+        <label>Email</label>
+        <input type="email" name="email" id="login-email" autocomplete="username" required />
+      </div>
+      <div class="field">
+        <label>Mật khẩu</label>
+        <input type="password" name="password" id="login-password" autocomplete="current-password" required />
+      </div>
+      <div class="login-error" id="login-error"></div>
+      <button type="submit" class="btn login-submit" id="login-submit">Đăng nhập</button>
+    </form>
+  </div>
+</div>
+
+<div id="app-shell" style="display:none">
+
 <header>
   <div class="title">
     Tiếp đón khám sức khỏe
@@ -399,6 +458,7 @@
   <nav>
     <button class="nav-btn active" id="nav-reception">Tiếp đón</button>
     <button class="nav-btn" id="nav-list">Danh sách</button>
+    <button class="nav-btn" id="btn-logout" title="Đăng xuất">⏻ Đăng xuất</button>
   </nav>
 </header>
 
@@ -470,6 +530,8 @@
   </section>
 
 </main>
+
+</div><!-- /#app-shell -->
 
 <!-- ============ MODAL CẤU HÌNH ĐỢT KHÁM ============ -->
 <div class="modal" id="settings-modal">

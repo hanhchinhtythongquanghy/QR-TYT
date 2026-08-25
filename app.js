@@ -7,6 +7,75 @@ const sb = window.supabase.createClient(
   window.APP_CONFIG.SUPABASE_ANON_KEY
 );
 
+// ============================================================
+// ĐĂNG NHẬP (1 tài khoản chung cho cả trạm, dùng Supabase Auth)
+// ============================================================
+const loginScreenEl = document.getElementById("login-screen");
+const appShellEl = document.getElementById("app-shell");
+const loginFormEl = document.getElementById("login-form");
+const loginErrorEl = document.getElementById("login-error");
+const loginSubmitEl = document.getElementById("login-submit");
+const loginTramNameEl = document.getElementById("login-tram-name");
+
+if (loginTramNameEl && window.APP_CONFIG.TEN_TRAM) {
+  loginTramNameEl.textContent = window.APP_CONFIG.TEN_TRAM;
+}
+
+function showApp() {
+  if (loginScreenEl) loginScreenEl.style.display = "none";
+  if (appShellEl) appShellEl.style.display = "";
+}
+
+function showLogin() {
+  if (appShellEl) appShellEl.style.display = "none";
+  if (loginScreenEl) loginScreenEl.style.display = "flex";
+}
+
+// Kiểm tra session ngay khi tải trang — nếu máy đã đăng nhập trước đó
+// (session Supabase tự lưu ở localStorage) thì vào thẳng app, không bắt
+// đăng nhập lại mỗi lần mở trình duyệt/kiosk.
+sb.auth.getSession().then(({ data }) => {
+  if (data.session) {
+    showApp();
+  } else {
+    showLogin();
+  }
+});
+
+// Theo dõi thay đổi trạng thái đăng nhập (đăng nhập / đăng xuất / hết hạn)
+sb.auth.onAuthStateChange((event, session) => {
+  if (session) {
+    showApp();
+  } else {
+    showLogin();
+  }
+});
+
+loginFormEl?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  loginErrorEl.textContent = "";
+  loginSubmitEl.disabled = true;
+  loginSubmitEl.textContent = "Đang đăng nhập...";
+
+  const email = document.getElementById("login-email").value.trim();
+  const password = document.getElementById("login-password").value;
+
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+
+  loginSubmitEl.disabled = false;
+  loginSubmitEl.textContent = "Đăng nhập";
+
+  if (error) {
+    loginErrorEl.textContent = "Sai email hoặc mật khẩu. Vui lòng thử lại.";
+    return;
+  }
+  loginFormEl.reset();
+});
+
+document.getElementById("btn-logout")?.addEventListener("click", async () => {
+  await sb.auth.signOut();
+});
+
 const SETTINGS_KEY = "dot_kham_settings_v1";
 
 // ---------- Cài đặt mặc định của đợt khám (lưu localStorage theo máy) ----------
