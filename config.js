@@ -12,8 +12,10 @@ window.APP_CONFIG = {
 
   // Danh sách nhân viên trực tiếp đón/quét mã — sửa lại danh sách này khi có thay đổi nhân sự
   DANH_SACH_NGUOI_QUET: [
-    "Nguyễn Thị A",
-    "Trần Văn B",
-    "Lê Thị C",
+    "Nguyễn Thị Hồng Hà",
+    "Nguyễn Thị Hương",
+    "Dương Thị Dinh",
+    "Quách Thị Thúy",
+    "Đỗ Thị Tú Linh",
   ],
 };
